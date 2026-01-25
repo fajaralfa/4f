@@ -244,6 +244,12 @@ test "Scan invalid immediates" {
     try expectInvalidToken("#23wrong");
 }
 
+test "Scan invalid tokens" {
+    // just random
+    try expectInvalidToken("#;");
+    try expectInvalidToken("@");
+}
+
 test "Scan identifier ignore position" {
     const str = "lw sw halt";
     const allocator = std.testing.allocator;
