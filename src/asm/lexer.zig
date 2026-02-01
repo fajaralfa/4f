@@ -69,6 +69,12 @@ pub const Lexer = struct {
         return self.tokens;
     }
 
+    pub fn print(self: *Lexer) void {
+        for (self.tokens.items) |token| {
+            std.debug.print("token: {}\n", .{token});
+        }
+    }
+
     fn scanToken(self: *Lexer) !void {
         const c = self.next();
         switch (c) {
