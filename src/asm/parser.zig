@@ -6,6 +6,20 @@ pub const Program = std.ArrayList(Block);
 pub const Block = union(enum) {
     label: Label,
     instruction: Instruction,
+
+    pub fn print(self: *const Block) void {
+        switch (self.*) {
+            .label => |label| {
+                std.debug.print("{s} {?d}\n", .{
+                    label.name,
+                    label.address,
+                });
+            },
+            .instruction => |instr| {
+                std.debug.print("instr {}\n", .{instr});
+            },
+        }
+    }
 };
 
 pub const Label = struct {
@@ -35,20 +49,24 @@ pub const Immediate = i8;
 
 pub const ParseError = error{
     InvalidSyntax,
+    Unimplemented,
+    UnknownOpcode,
 };
 
 pub const Parser = struct {
     allocator: std.mem.Allocator,
     tokens: []const lexer.Token,
     ast: Program,
-    pos: i32,
+    pos: usize,
+    debug: bool,
 
-    fn init(allocator: std.mem.Allocator, input: []lexer.Token) Parser {
+    fn init(allocator: std.mem.Allocator, input: []lexer.Token, debug: bool) Parser {
         return Parser{
             .allocator = allocator,
             .tokens = input,
             .ast = Program.empty,
             .pos = 0,
+            .debug = debug,
         };
     }
 
@@ -58,18 +76,22 @@ pub const Parser = struct {
 
     fn print(self: *Parser) void {
         for (self.ast.items) |block| {
-            std.log.debug("{}", block);
+            block.print();
         }
     }
 
     fn parse(self: *Parser) !Program {
         while (self.current().type != .EOF) {
-            self.ast.append(self.allocator, try self.parse_block());
+            if (self.current().type == .Newline) {
+                self.advance();
+                continue;
+            }
+            try self.ast.append(self.allocator, try self.parseBlock());
         }
         return self.ast;
     }
 
-    fn current(self: *Parser) *lexer.Token {
+    fn current(self: *Parser) lexer.Token {
         return self.tokens[self.pos];
     }
 
@@ -77,45 +99,38 @@ pub const Parser = struct {
         self.pos += 1;
     }
 
+    fn debugToken(self: *Parser, tok: lexer.Token, method: []const u8) void {
+        if (self.debug) {
+            std.debug.print("place: {s} pos: {} type: {} lit: \"{s}\"\n", .{ method, self.pos, tok.type, tok.literal });
+        }
+    }
+
     fn expect(self: *Parser, toktype: lexer.TokenType) !lexer.Token {
         const tok = self.current();
+        self.debugToken(tok, "expect");
         if (tok.type != toktype) {
             return ParseError.InvalidSyntax;
         }
-        self.advance();
         return tok;
     }
 
     fn parseBlock(self: *Parser) !Block {
         if (self.current().type == .Identifier and self.tokens[self.pos + 1].type == .Colon) {
-            const label = self.parseLabel();
-            try self.expect(.Colon);
+            const label = try self.parseLabel();
             return Block{ .label = label };
-        } else {
-            const instr = try self.parseInstr();
-            return Block{ .instruction = instr };
         }
+        return ParseError.InvalidSyntax;
     }
 
-    fn parseInstr(self: *Parser) !Instruction {
-        const opcode = (try self.expect(.Identifier)).literal;
-        var operand = std.ArrayList(Operand).empty;
-        switch (self.current().type) {
-            .Identifier, .ImmVal => {
-                operand.append(self.allocator, try self.parseOperand());
-                while (self.current().type == .Comma) {
-                    self.advance();
-                    operand.append(self.allocator, try self.parseOperand());
-                }
-            },
-        }
-        return Instruction{ .opcode = opcode, .operand = operand.items };
+    fn parseLabel(self: *Parser) !Label {
+        const label_tok: lexer.Token = self.current();
+        self.advance();
+        _ = try self.expect(.Colon);
+        self.advance();
+        return Label{ .name = label_tok.literal };
     }
+};
 
-    fn parseOperand(self: *Parser) !Operand {
-        const tok = self.current();
-        if (tok.type == .Identifier) {
-            self.advance();
             return Operand{ .immediate = 20 };
         }
 
@@ -124,16 +139,18 @@ pub const Parser = struct {
 };
 
 test "Init parser" {
+test "Parse label def" {
     const allocator = std.testing.allocator;
     var lex = lexer.Lexer.init(allocator,
-        \\start: end:
-        \\x1 lui
+        \\start:
+        \\start:
     );
     defer lex.deinit();
     const tokens = try lex.tokenize();
 
-    var parser = Parser.init(allocator, tokens.items);
+    var parser = Parser.init(allocator, tokens.items, false);
     defer parser.deinit();
     const ast = try parser.parse();
     _ = ast;
+    parser.print();
 }
