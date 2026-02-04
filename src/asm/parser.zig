@@ -124,7 +124,9 @@ pub const Parser = struct {
 
     fn advance(self: *Parser) lexer.Token {
         self.pos += 1;
-        return self.current();
+        const tok = self.current();
+        self.debugToken(tok, "advance");
+        return tok;
     }
 
     fn debugToken(self: *Parser, tok: lexer.Token, method: []const u8) void {
@@ -174,21 +176,33 @@ pub const Parser = struct {
         var curr = self.advance();
         var operands = std.ArrayList(Operand).empty;
         if (curr.type == .Identifier or curr.type == .ImmVal) {
-            const op1 = Operand{ .register = .X1 };
-            try operands.append(self.allocator, op1);
-            curr = self.advance();
             while (curr.type != .EOF and curr.type != .Newline) {
-                self.debugToken(curr, "parseInstruction");
                 switch (curr.type) {
                     .Identifier => {
-                        const operand = Operand{ .register = .X1 };
+                        const op_reg = parseRegister(curr.literal);
+                        const op_opcode = parseOpcode(curr.literal);
+                        var operand: Operand = undefined;
+                        if (op_opcode != null) {
+                            return ParseError.InvalidSyntax;
+                        }
+                        if (op_reg != null) {
+                            operand = Operand{ .register = op_reg orelse unreachable };
+                        } else {
+                            operand = Operand{ .label = .{ .name = curr.literal } };
+                        }
                         try operands.append(self.allocator, operand);
                     },
                     .ImmVal => {
-                        const operand = Operand{ .immediate = 127 };
+                        const value = try std.fmt.parseInt(u8, curr.literal[3..], 16);
+                        const operand = Operand{ .immediate = @bitCast(value) };
                         try operands.append(self.allocator, operand);
                     },
-                    else => {},
+                    .Comma => {
+                        // skip comma
+                    },
+                    else => {
+                        return ParseError.InvalidSyntax;
+                    },
                 }
                 curr = self.advance();
             }
@@ -239,7 +253,7 @@ test "Parse instruction" {
     defer lex.deinit();
     const tokens = try lex.tokenize();
 
-    var parser = Parser.init(allocator, tokens.items, true);
+    var parser = Parser.init(allocator, tokens.items, false);
     defer parser.deinit();
     const ast = try parser.parse();
     _ = ast;
@@ -249,7 +263,7 @@ test "Parse instruction" {
 test "Parse instruction with operand" {
     const allocator = std.testing.allocator;
     var lex = lexer.Lexer.init(allocator,
-        \\lui x1, #0xFF
+        \\lui x2, #0xff
     );
     defer lex.deinit();
     const tokens = try lex.tokenize();
