@@ -69,7 +69,7 @@ pub const Operand = union(enum) {
 };
 
 pub const Register = enum { PC, SP, X1, X2, X3, MEPC, MCAUSE, MTVEC };
-pub const Immediate = i8;
+pub const Immediate = u8;
 
 pub const ParseError = error{
     InvalidSyntax,
@@ -211,8 +211,9 @@ pub const Parser = struct {
     }
 };
 
-fn parseImmediate(literal: []const u8) !i8 {
-    const value = try std.fmt.parseInt(u8, literal[3..], 16);
+fn parseImmediate(literal: []const u8) !u8 {
+    const lit = literal[1..]; // ignore the hashtag
+    const value = try std.fmt.parseInt(u8, lit, 0);
     return @bitCast(value);
 }
 
@@ -274,6 +275,24 @@ test "Parse instruction with operand" {
     const tokens = try lex.tokenize();
 
     var parser = Parser.init(allocator, tokens.items, true);
+    defer parser.deinit();
+    const ast = try parser.parse();
+    _ = ast;
+    parser.print();
+}
+
+test "Parse full program" {
+    const allocator = std.testing.allocator;
+    var lex = lexer.Lexer.init(allocator,
+        \\start:
+        \\lui x2, #0xfd
+        \\otherfn:
+        \\halt
+    );
+    defer lex.deinit();
+    const tokens = try lex.tokenize();
+
+    var parser = Parser.init(allocator, tokens.items, false);
     defer parser.deinit();
     const ast = try parser.parse();
     _ = ast;
