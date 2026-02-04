@@ -193,8 +193,8 @@ pub const Parser = struct {
                         try operands.append(self.allocator, operand);
                     },
                     .ImmVal => {
-                        const value = try std.fmt.parseInt(u8, curr.literal[3..], 16);
-                        const operand = Operand{ .immediate = @bitCast(value) };
+                        const value = try parseImmediate(curr.literal);
+                        const operand = Operand{ .immediate = value };
                         try operands.append(self.allocator, operand);
                     },
                     .Comma => {
@@ -210,6 +210,11 @@ pub const Parser = struct {
         return Instruction{ .opcode = opcode, .operand = operands };
     }
 };
+
+fn parseImmediate(literal: []const u8) !i8 {
+    const value = try std.fmt.parseInt(u8, literal[3..], 16);
+    return @bitCast(value);
+}
 
 fn parseOpcode(name: []const u8) ?Opcode {
     if (std.mem.eql(u8, name, "halt")) return .Halt;
