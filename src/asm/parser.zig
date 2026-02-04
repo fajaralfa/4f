@@ -16,8 +16,32 @@ pub const Block = union(enum) {
                 });
             },
             .instruction => |instr| {
-                std.debug.print("instr {}\n", .{instr});
+                std.debug.print("instr: opcode {}, operands ", .{instr.opcode});
+                for (instr.operand.items) |*opr| {
+                    switch (opr.*) {
+                        .immediate => |imm| {
+                            std.debug.print("{}", .{imm});
+                        },
+                        .label => |label| {
+                            std.debug.print("{}", .{label});
+                        },
+                        .register => |reg| {
+                            std.debug.print("{}", .{reg});
+                        },
+                    }
+                    std.debug.print(", ", .{});
+                }
+                std.debug.print("\n", .{});
             },
+        }
+    }
+
+    pub fn free(self: *Block, allocator: std.mem.Allocator) void {
+        switch (self.*) {
+            .instruction => |*instr| {
+                instr.operand.deinit(allocator);
+            },
+            else => {},
         }
     }
 };
@@ -29,7 +53,7 @@ pub const Label = struct {
 
 pub const Instruction = struct {
     opcode: Opcode,
-    operand: []Operand,
+    operand: std.ArrayList(Operand),
 };
 
 pub const Opcode = enum {
@@ -71,6 +95,9 @@ pub const Parser = struct {
     }
 
     fn deinit(self: *Parser) void {
+        for (self.ast.items) |*block| {
+            block.free(self.allocator);
+        }
         self.ast.deinit(self.allocator);
     }
 
@@ -83,7 +110,7 @@ pub const Parser = struct {
     fn parse(self: *Parser) !Program {
         while (self.current().type != .EOF) {
             if (self.current().type == .Newline) {
-                self.advance();
+                _ = self.advance();
                 continue;
             }
             try self.ast.append(self.allocator, try self.parseBlock());
@@ -95,8 +122,9 @@ pub const Parser = struct {
         return self.tokens[self.pos];
     }
 
-    fn advance(self: *Parser) void {
+    fn advance(self: *Parser) lexer.Token {
         self.pos += 1;
+        return self.current();
     }
 
     fn debugToken(self: *Parser, tok: lexer.Token, method: []const u8) void {
@@ -115,40 +143,118 @@ pub const Parser = struct {
     }
 
     fn parseBlock(self: *Parser) !Block {
-        if (self.current().type == .Identifier and self.tokens[self.pos + 1].type == .Colon) {
-            const label = try self.parseLabel();
-            return Block{ .label = label };
+        const curr = self.current();
+        if (curr.type == .Identifier and self.tokens[self.pos + 1].type == .Colon) {
+            const opcode = parseOpcode(curr.literal);
+            const register = parseRegister(curr.literal);
+            if (opcode == null and register == null) {
+                const label = try self.parseLabel();
+                return Block{ .label = label };
+            }
+        } else if (curr.type == .Identifier) {
+            const instruction = try self.parseInstruction();
+            return Block{ .instruction = instruction };
         }
+        self.debugToken(curr, "parseBlock");
         return ParseError.InvalidSyntax;
     }
 
     fn parseLabel(self: *Parser) !Label {
         const label_tok: lexer.Token = self.current();
-        self.advance();
+        _ = self.advance();
         _ = try self.expect(.Colon);
-        self.advance();
+        _ = self.advance();
         return Label{ .name = label_tok.literal };
     }
-};
 
-            return Operand{ .immediate = 20 };
+    fn parseInstruction(self: *Parser) !Instruction {
+        const opcode = parseOpcode(self.current().literal) orelse {
+            return ParseError.UnknownOpcode;
+        };
+        var curr = self.advance();
+        var operands = std.ArrayList(Operand).empty;
+        if (curr.type == .Identifier or curr.type == .ImmVal) {
+            const op1 = Operand{ .register = .X1 };
+            try operands.append(self.allocator, op1);
+            curr = self.advance();
+            while (curr.type != .EOF and curr.type != .Newline) {
+                self.debugToken(curr, "parseInstruction");
+                switch (curr.type) {
+                    .Identifier => {
+                        const operand = Operand{ .register = .X1 };
+                        try operands.append(self.allocator, operand);
+                    },
+                    .ImmVal => {
+                        const operand = Operand{ .immediate = 127 };
+                        try operands.append(self.allocator, operand);
+                    },
+                    else => {},
+                }
+                curr = self.advance();
+            }
         }
-
-        return ParseError.InvalidSyntax;
+        return Instruction{ .opcode = opcode, .operand = operands };
     }
 };
 
-test "Init parser" {
+fn parseOpcode(name: []const u8) ?Opcode {
+    if (std.mem.eql(u8, name, "halt")) return .Halt;
+    if (std.mem.eql(u8, name, "lui")) return .Lui;
+    if (std.mem.eql(u8, name, "addi")) return .Addi;
+    return null;
+}
+
+fn parseRegister(name: []const u8) ?Register {
+    if (std.mem.eql(u8, name, "pc")) return .PC;
+    if (std.mem.eql(u8, name, "sp")) return .SP;
+    if (std.mem.eql(u8, name, "x1")) return .X1;
+    if (std.mem.eql(u8, name, "x2")) return .X2;
+    if (std.mem.eql(u8, name, "x3")) return .X3;
+    if (std.mem.eql(u8, name, "mepc")) return .MEPC;
+    if (std.mem.eql(u8, name, "mcause")) return .MCAUSE;
+    if (std.mem.eql(u8, name, "mtvec")) return .MTVEC;
+    return null;
+}
+
 test "Parse label def" {
     const allocator = std.testing.allocator;
     var lex = lexer.Lexer.init(allocator,
-        \\start:
         \\start:
     );
     defer lex.deinit();
     const tokens = try lex.tokenize();
 
     var parser = Parser.init(allocator, tokens.items, false);
+    defer parser.deinit();
+    const ast = try parser.parse();
+    _ = ast;
+    parser.print();
+}
+
+test "Parse instruction" {
+    const allocator = std.testing.allocator;
+    var lex = lexer.Lexer.init(allocator,
+        \\halt
+    );
+    defer lex.deinit();
+    const tokens = try lex.tokenize();
+
+    var parser = Parser.init(allocator, tokens.items, true);
+    defer parser.deinit();
+    const ast = try parser.parse();
+    _ = ast;
+    parser.print();
+}
+
+test "Parse instruction with operand" {
+    const allocator = std.testing.allocator;
+    var lex = lexer.Lexer.init(allocator,
+        \\lui x1, #0xFF
+    );
+    defer lex.deinit();
+    const tokens = try lex.tokenize();
+
+    var parser = Parser.init(allocator, tokens.items, true);
     defer parser.deinit();
     const ast = try parser.parse();
     _ = ast;
