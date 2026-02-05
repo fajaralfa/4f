@@ -84,7 +84,7 @@ pub const Parser = struct {
     pos: usize,
     debug: bool,
 
-    fn init(allocator: std.mem.Allocator, input: []lexer.Token, debug: bool) Parser {
+    pub fn init(allocator: std.mem.Allocator, input: []lexer.Token, debug: bool) Parser {
         return Parser{
             .allocator = allocator,
             .tokens = input,
@@ -94,20 +94,20 @@ pub const Parser = struct {
         };
     }
 
-    fn deinit(self: *Parser) void {
+    pub fn deinit(self: *Parser) void {
         for (self.ast.items) |*block| {
             block.free(self.allocator);
         }
         self.ast.deinit(self.allocator);
     }
 
-    fn print(self: *Parser) void {
+    pub fn print(self: *Parser) void {
         for (self.ast.items) |block| {
             block.print();
         }
     }
 
-    fn parse(self: *Parser) !Program {
+    pub fn parse(self: *Parser) !Program {
         while (self.current().type != .EOF) {
             if (self.current().type == .Newline) {
                 _ = self.advance();
@@ -118,24 +118,24 @@ pub const Parser = struct {
         return self.ast;
     }
 
-    fn current(self: *Parser) lexer.Token {
+    pub fn current(self: *Parser) lexer.Token {
         return self.tokens[self.pos];
     }
 
-    fn advance(self: *Parser) lexer.Token {
+    pub fn advance(self: *Parser) lexer.Token {
         self.pos += 1;
         const tok = self.current();
         self.debugToken(tok, "advance");
         return tok;
     }
 
-    fn debugToken(self: *Parser, tok: lexer.Token, method: []const u8) void {
+    pub fn debugToken(self: *Parser, tok: lexer.Token, method: []const u8) void {
         if (self.debug) {
             std.debug.print("place: {s} pos: {} type: {} lit: \"{s}\"\n", .{ method, self.pos, tok.type, tok.literal });
         }
     }
 
-    fn expect(self: *Parser, toktype: lexer.TokenType) !lexer.Token {
+    pub fn expect(self: *Parser, toktype: lexer.TokenType) !lexer.Token {
         const tok = self.current();
         self.debugToken(tok, "expect");
         if (tok.type != toktype) {
@@ -144,7 +144,7 @@ pub const Parser = struct {
         return tok;
     }
 
-    fn parseBlock(self: *Parser) !Block {
+    pub fn parseBlock(self: *Parser) !Block {
         const curr = self.current();
         if (curr.type == .Identifier and self.tokens[self.pos + 1].type == .Colon) {
             const opcode = parseOpcode(curr.literal);
@@ -161,7 +161,7 @@ pub const Parser = struct {
         return ParseError.InvalidSyntax;
     }
 
-    fn parseLabel(self: *Parser) !Label {
+    pub fn parseLabel(self: *Parser) !Label {
         const label_tok: lexer.Token = self.current();
         _ = self.advance();
         _ = try self.expect(.Colon);
@@ -169,7 +169,7 @@ pub const Parser = struct {
         return Label{ .name = label_tok.literal };
     }
 
-    fn parseInstruction(self: *Parser) !Instruction {
+    pub fn parseInstruction(self: *Parser) !Instruction {
         const opcode = parseOpcode(self.current().literal) orelse {
             return ParseError.UnknownOpcode;
         };
