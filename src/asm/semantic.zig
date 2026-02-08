@@ -14,8 +14,9 @@ pub const SemanticAnalyzer = struct {
     labels: std.StringHashMap(usize),
     allocator: std.mem.Allocator,
     opcode_specs: [INSTR_LEN]OperandSpec,
+    program: asttype.Program,
 
-    fn init(allocator: std.mem.Allocator) SemanticAnalyzer {
+    fn init(allocator: std.mem.Allocator, program: asttype.Program) SemanticAnalyzer {
         var opcode_specs: [INSTR_LEN]OperandSpec = undefined;
         inline for (0..INSTR_LEN) |i| {
             opcode_specs[i] = .{
@@ -27,7 +28,7 @@ pub const SemanticAnalyzer = struct {
 
         opcode_specs[1] = .{
             .count = 3,
-            .kinds = &.{ .Register, .Register, .Immediate },
+            .kinds = &.{ .register, .register, .immediate },
             .instr_fn = lw,
         };
 
@@ -35,6 +36,7 @@ pub const SemanticAnalyzer = struct {
             .allocator = allocator,
             .labels = std.StringHashMap(usize).init(allocator),
             .opcode_specs = opcode_specs,
+            .program = program,
         };
     }
 
@@ -42,28 +44,28 @@ pub const SemanticAnalyzer = struct {
         self.labels.deinit();
     }
 
-    fn analyze(self: *SemanticAnalyzer, program: asttype.Program) !void {
-        for (program.items, 0..) |*block, i| {
+    fn analyze(self: *SemanticAnalyzer) !void {
+        for (self.program.items, 0..) |*block, i| {
             try self.visitBlock(block, i);
         }
     }
 
     fn visitBlock(self: *SemanticAnalyzer, block: *asttype.Block, index: usize) !void {
-        switch (block.*) {
-            .Label => |l| {
+        switch (block) {
+            .label => |l| {
                 try self.visitLabel(l, index);
             },
-            .Instruction => |instr| {
+            .instruction => |instr| {
                 try self.visitInstruction(instr);
             },
         }
     }
 
-    fn visitLabel(self: *SemanticAnalyzer, label: asttype.Label, index: usize) !void {
+    fn visitLabel(self: *SemanticAnalyzer, label: *asttype.Label, index: usize) !void {
         try self.labels.put(label.name, index);
     }
 
-    fn visitInstruction(self: *SemanticAnalyzer, instr: asttype.Instruction) !void {
+    fn visitInstruction(self: *SemanticAnalyzer, instr: *asttype.Instruction) !void {
         if (instr.opcode == .Invalid) {
             return SemanticError.InvalidInstruction;
         }
@@ -79,38 +81,68 @@ pub const SemanticAnalyzer = struct {
                 return SemanticError.WrongOperand;
         }
 
-        _ = try spec.instr_fn(self, instr);
+        try spec.instr_fn(self, instr);
     }
 
-    fn invalid(_: *SemanticAnalyzer, _: asttype.Instruction) !u16 {
+    fn invalid(_: *SemanticAnalyzer, _: *asttype.Instruction) !void {
         return SemanticError.InvalidInstruction;
     }
 
-    fn lw(self: *SemanticAnalyzer, instr: asttype.Instruction) !u16 {
+    fn noop(_: *SemanticAnalyzer, _: *asttype.Instruction) !void {}
+
+    fn lw(self: *SemanticAnalyzer, instr: *asttype.Instruction) !void {
         _ = self;
-        std.debug.print("anjau {}\n", .{instr.opcode});
-        return 10;
+        // _ = instr;
+        instr.opcode = .And;
+        // const items = instr.operand.items;
+        // const x1: asttype.Register = getOperand(.register, items[0]);
+        // const x2: asttype.Register = getOperand(.register, items[1]);
+        // const imm: asttype.Immediate = getOperand(.immediate, items[2]);
     }
 };
+
+fn OperandType(comptime kind: asttype.OperandKind) type {
+    return switch (kind) {
+        .register => asttype.Register,
+        .immediate => asttype.Immediate,
+        .label => asttype.Label,
+    };
+}
+
+fn getOperand(
+    comptime kind: asttype.OperandKind,
+    op: asttype.Operand,
+) OperandType(kind) {
+    return switch (op) {
+        kind => |v| v,
+        else => unreachable,
+    };
+}
 
 const OperandSpec = struct {
     count: u8,
     kinds: []const asttype.OperandKind,
-    instr_fn: *const fn (*SemanticAnalyzer, asttype.Instruction) anyerror!u16,
+    instr_fn: *const fn (*SemanticAnalyzer, *asttype.Instruction) anyerror!void,
 };
 
 test "init semantic analyzer" {
     const allocator = std.testing.allocator;
+
     var program = try asttype.Program.initCapacity(allocator, 1);
-    try program.append(allocator, asttype.Block{ .Label = .{ .name = "start" } });
+    defer program.deinit(allocator);
+    const label = asttype.Label{ .name = "start" };
+    try program.append(allocator, asttype.Block{ .label = label });
+
     var operand = try std.ArrayList(asttype.Operand).initCapacity(allocator, 3);
     defer operand.deinit(allocator);
-    try operand.append(allocator, .{ .Register = .X1 });
-    try operand.append(allocator, .{ .Register = .X1 });
-    try operand.append(allocator, .{ .Immediate = 10 });
-    try program.append(allocator, asttype.Block{ .Instruction = .{ .opcode = .Lw, .operand = operand } });
-    var sema = SemanticAnalyzer.init(allocator);
-    defer program.deinit(allocator);
+    try operand.append(allocator, .{ .register = .X1 });
+    try operand.append(allocator, .{ .register = .X1 });
+    try operand.append(allocator, .{ .immediate = 10 });
+    const instruction = asttype.Instruction{ .opcode = .Lw, .operand = operand };
+    try program.append(allocator, asttype.Block{ .instruction = instruction });
+
+    var sema = SemanticAnalyzer.init(allocator, program);
     defer sema.deinit();
-    try sema.analyze(program);
+    try sema.analyze();
+    std.debug.print("program: {}\n", .{program});
 }

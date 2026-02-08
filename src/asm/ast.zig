@@ -77,9 +77,9 @@ pub const Opcode = enum {
 };
 
 pub const OperandKind = enum {
-    Register,
-    Immediate,
-    Label,
+    register,
+    immediate,
+    label,
 };
 
 pub const Operand = union(OperandKind) {
