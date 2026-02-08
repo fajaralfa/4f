@@ -6,6 +6,7 @@ const asttype = @import("ast.zig");
 pub const SemanticError = error{
     WrongOperand,
     InvalidInstruction,
+    ImmediateSizeExceeded,
 };
 
 const INSTR_LEN = 32;
@@ -51,12 +52,12 @@ pub const SemanticAnalyzer = struct {
     }
 
     fn visitBlock(self: *SemanticAnalyzer, block: *asttype.Block, index: usize) !void {
-        switch (block) {
-            .label => |l| {
-                try self.visitLabel(l, index);
+        switch (block.*) {
+            .label => {
+                try self.visitLabel(&block.label, index);
             },
-            .instruction => |instr| {
-                try self.visitInstruction(instr);
+            .instruction => {
+                try self.visitInstruction(&block.instruction);
             },
         }
     }
@@ -93,11 +94,11 @@ pub const SemanticAnalyzer = struct {
     fn lw(self: *SemanticAnalyzer, instr: *asttype.Instruction) !void {
         _ = self;
         // _ = instr;
-        instr.opcode = .And;
-        // const items = instr.operand.items;
-        // const x1: asttype.Register = getOperand(.register, items[0]);
-        // const x2: asttype.Register = getOperand(.register, items[1]);
-        // const imm: asttype.Immediate = getOperand(.immediate, items[2]);
+        const items = instr.operand.items;
+        const imm: asttype.Immediate = getOperand(.immediate, items[2]);
+        if (imm > std.math.maxInt(u5)) {
+            return SemanticError.ImmediateSizeExceeded;
+        }
     }
 };
 
@@ -137,12 +138,13 @@ test "init semantic analyzer" {
     defer operand.deinit(allocator);
     try operand.append(allocator, .{ .register = .X1 });
     try operand.append(allocator, .{ .register = .X1 });
-    try operand.append(allocator, .{ .immediate = 10 });
-    const instruction = asttype.Instruction{ .opcode = .Lw, .operand = operand };
-    try program.append(allocator, asttype.Block{ .instruction = instruction });
+    try operand.append(allocator, .{ .immediate = 31 });
+    try program.append(allocator, asttype.Block{ .instruction = asttype.Instruction{ .opcode = .Lw, .operand = operand } });
 
     var sema = SemanticAnalyzer.init(allocator, program);
     defer sema.deinit();
     try sema.analyze();
-    std.debug.print("program: {}\n", .{program});
+    for (program.items) |ins| {
+        ins.print();
+    }
 }
