@@ -7,4 +7,7 @@ test {
     _ = @import("assembler.zig");
     _ = @import("cpu.zig");
     _ = @import("mmio.zig");
+    _ = @import("asm/lexer.zig");
+    _ = @import("asm/parser.zig");
+    _ = @import("asm/semantic.zig");
 }
