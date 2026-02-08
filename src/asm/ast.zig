@@ -56,12 +56,33 @@ pub const Instruction = struct {
 };
 
 pub const Opcode = enum {
-    Halt,
+    Invalid,
+    Lw,
+    Sw,
     Lui,
     Addi,
+    Add,
+    Sub,
+    And,
+    Not,
+    Or,
+    Xor,
+    Sll,
+    Srl,
+    Sra,
+    Jr,
+    Beq,
+    Bne,
+    Halt,
 };
 
-pub const Operand = union(enum) {
+pub const OperandKind = enum {
+    Register,
+    Immediate,
+    Label,
+};
+
+pub const Operand = union(OperandKind) {
     register: Register,
     immediate: Immediate,
     label: Label,

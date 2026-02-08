@@ -158,8 +158,22 @@ fn parseImmediate(literal: []const u8) !u8 {
 
 fn parseOpcode(name: []const u8) ?Opcode {
     if (std.mem.eql(u8, name, "halt")) return .Halt;
+    if (std.mem.eql(u8, name, "lw")) return .Lw;
+    if (std.mem.eql(u8, name, "sw")) return .Sw;
     if (std.mem.eql(u8, name, "lui")) return .Lui;
     if (std.mem.eql(u8, name, "addi")) return .Addi;
+    if (std.mem.eql(u8, name, "add")) return .Add;
+    if (std.mem.eql(u8, name, "sub")) return .Sub;
+    if (std.mem.eql(u8, name, "and")) return .And;
+    if (std.mem.eql(u8, name, "not")) return .Not;
+    if (std.mem.eql(u8, name, "or")) return .Or;
+    if (std.mem.eql(u8, name, "xor")) return .Xor;
+    if (std.mem.eql(u8, name, "sll")) return .Sll;
+    if (std.mem.eql(u8, name, "srl")) return .Srl;
+    if (std.mem.eql(u8, name, "sra")) return .Sra;
+    if (std.mem.eql(u8, name, "jr")) return .Jr;
+    if (std.mem.eql(u8, name, "beq")) return .Beq;
+    if (std.mem.eql(u8, name, "bne")) return .Bne;
     return null;
 }
 
