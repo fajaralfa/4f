@@ -14,16 +14,16 @@ const INSTR_LEN = 32;
 pub const SemanticAnalyzer = struct {
     labels: std.StringHashMap(usize),
     allocator: std.mem.Allocator,
-    opcode_specs: [INSTR_LEN]OperandSpec,
+    operand_specs: [INSTR_LEN]OperandSpec,
     program: asttype.Program,
 
     fn init(allocator: std.mem.Allocator, program: asttype.Program) SemanticAnalyzer {
-        const opcode_specs: [INSTR_LEN]OperandSpec = getOpcodeSpec();
+        const operand_specs: [INSTR_LEN]OperandSpec = getOpcodeSpec();
 
         return SemanticAnalyzer{
             .allocator = allocator,
             .labels = std.StringHashMap(usize).init(allocator),
-            .opcode_specs = opcode_specs,
+            .operand_specs = operand_specs,
             .program = program,
         };
     }
@@ -155,7 +155,7 @@ pub const SemanticAnalyzer = struct {
             return SemanticError.InvalidInstruction;
         }
 
-        const spec = self.opcode_specs[@intFromEnum(instr.opcode)];
+        const spec = self.operand_specs[@intFromEnum(instr.opcode)];
 
         if (instr.operand.items.len != spec.kinds.len)
             return SemanticError.WrongOperand;
