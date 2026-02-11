@@ -32,110 +32,92 @@ pub const SemanticAnalyzer = struct {
         var opcode_specs: [INSTR_LEN]OperandSpec = undefined;
         inline for (0..INSTR_LEN) |i| {
             opcode_specs[i] = .{
-                .count = 0,
                 .kinds = &.{},
                 .instr_fn = invalid,
             };
         }
 
         opcode_specs[1] = .{
-            .count = 3,
             .kinds = &.{ .register, .register, .immediate },
             .instr_fn = lw,
         };
 
         opcode_specs[2] = .{
-            .count = 3,
             .kinds = &.{ .register, .register, .immediate },
             .instr_fn = sw,
         };
 
         opcode_specs[3] = .{
-            .count = 2,
             .kinds = &.{ .register, .immediate },
             .instr_fn = lui,
         };
 
         opcode_specs[4] = .{
-            .count = 3,
             .kinds = &.{ .register, .register, .immediate },
             .instr_fn = addi,
         };
 
         opcode_specs[5] = .{
-            .count = 3,
             .kinds = &.{ .register, .register, .register },
             .instr_fn = add,
         };
 
         opcode_specs[6] = .{
-            .count = 3,
             .kinds = &.{ .register, .register, .register },
             .instr_fn = sub,
         };
 
         opcode_specs[7] = .{
-            .count = 3,
             .kinds = &.{ .register, .register, .register },
             .instr_fn = opAnd,
         };
 
         opcode_specs[8] = .{
-            .count = 3,
             .kinds = &.{ .register, .register, .register },
             .instr_fn = opNot,
         };
 
         opcode_specs[9] = .{
-            .count = 3,
             .kinds = &.{ .register, .register, .register },
             .instr_fn = opOr,
         };
 
         opcode_specs[10] = .{
-            .count = 3,
             .kinds = &.{ .register, .register, .register },
             .instr_fn = opXor,
         };
 
         opcode_specs[11] = .{
-            .count = 3,
             .kinds = &.{ .register, .register, .register },
             .instr_fn = opSll,
         };
 
         opcode_specs[12] = .{
-            .count = 3,
             .kinds = &.{ .register, .register, .register },
             .instr_fn = opSrl,
         };
 
         opcode_specs[13] = .{
-            .count = 3,
             .kinds = &.{ .register, .register, .register },
             .instr_fn = opSra,
         };
 
         opcode_specs[14] = .{
-            .count = 3,
             .kinds = &.{.register},
             .instr_fn = jr,
         };
 
         opcode_specs[15] = .{
-            .count = 3,
             .kinds = &.{ .register, .register, .register },
             .instr_fn = beq,
         };
 
         opcode_specs[16] = .{
-            .count = 3,
             .kinds = &.{ .register, .register, .register },
             .instr_fn = bne,
         };
 
         opcode_specs[0x1f] = .{
-            .count = 3,
             .kinds = &.{},
             .instr_fn = halt,
         };
@@ -175,7 +157,7 @@ pub const SemanticAnalyzer = struct {
 
         const spec = self.opcode_specs[@intFromEnum(instr.opcode)];
 
-        if (instr.operand.items.len != spec.count)
+        if (instr.operand.items.len != spec.kinds.len)
             return SemanticError.WrongOperand;
 
         for (spec.kinds, instr.operand.items) |expected, actual| {
@@ -265,7 +247,6 @@ fn getOperand(comptime kind: asttype.OperandKind, op: asttype.Operand) OperandTy
 }
 
 const OperandSpec = struct {
-    count: u8,
     kinds: []const asttype.OperandKind,
     instr_fn: *const fn (*SemanticAnalyzer, *asttype.Instruction) anyerror!void,
 };
