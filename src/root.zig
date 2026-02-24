@@ -10,4 +10,5 @@ test {
     _ = @import("asm/lexer.zig");
     _ = @import("asm/parser.zig");
     _ = @import("asm/semantic.zig");
+    _ = @import("asm/codegen.zig");
 }
