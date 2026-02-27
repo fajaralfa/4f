@@ -1,5 +1,6 @@
 const std = @import("std");
 const ast = @import("ast.zig");
+const builder = @import("builder.zig");
 
 const Codegen = struct {
     allocator: std.mem.Allocator,
@@ -17,10 +18,11 @@ const Codegen = struct {
     }
 
     pub fn gen(self: *Codegen) !std.ArrayList(u16) {
-        const result = std.ArrayList(u16).empty;
+        var result = std.ArrayList(u16).empty;
         for (self.program.items) |p| {
-            result.append(self.allocator, visitBlock(p));
+            try result.append(self.allocator, visitBlock(p));
         }
+        return result;
     }
 
     pub fn visitBlock(block: ast.Block) u16 {
@@ -60,12 +62,11 @@ const Codegen = struct {
     }
 
     pub fn lw(instr: ast.Instruction) u16 {
-        const opBit = 0x01;
         const operands = instr.operand.items;
         const r1 = getReg(operands[0]);
         const r2 = getReg(operands[1]);
-        const imm = getImmU8(operands[2]);
-        const instrBit: u16 = (opBit << 11) | (r1 << 8) | (r2 << 5) | imm;
+        const imm = try getImmU5(operands[2]);
+        const instrBit = builder.lw(r1, r2, imm);
         return instrBit;
     }
 };
@@ -97,7 +98,43 @@ pub fn getImmU8(operand: ast.Operand) u8 {
     };
 }
 
+pub fn getImmU5(operand: ast.Operand) !u5 {
+    return switch (operand) {
+        .immediate => |r| @intCast(r),
+        else => unreachable,
+    };
+}
+
 test "init codegen" {
-    var codegen = Codegen.init(std.testing.allocator);
+    const allocator = std.testing.allocator;
+    var program = try ast.Program.initCapacity(allocator, 3);
+    defer program.deinit(allocator);
+    var codegen = Codegen.init(allocator, program);
     defer codegen.deinit();
+}
+
+test "emit instruction" {
+    const allocator = std.testing.allocator;
+
+    var program = try ast.Program.initCapacity(allocator, 1);
+    defer program.deinit(allocator);
+
+    var operands = try std.ArrayList(ast.Operand).initCapacity(allocator, 3);
+    defer operands.deinit(allocator);
+    try operands.append(allocator, .{ .register = .X1 });
+    try operands.append(allocator, .{ .register = .X2 });
+    try operands.append(allocator, .{ .immediate = 10 });
+
+    try program.append(allocator, ast.Block{
+        .instruction = .{ .opcode = .Lw, .operand = operands },
+    });
+
+    var codegen = Codegen.init(allocator, program);
+    defer codegen.deinit();
+
+    var result = try codegen.gen();
+    defer result.deinit(allocator);
+    for (result.items) |i| {
+        std.debug.print("{b}\n", .{i});
+    }
 }
