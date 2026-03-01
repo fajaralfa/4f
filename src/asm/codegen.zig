@@ -39,34 +39,70 @@ const Codegen = struct {
     pub fn visitInstruction(instr: ast.Instruction) u16 {
         const instructionBit: u16 = switch (instr.opcode) {
             .Invalid => 0x00,
-            .Lw => lw(instr),
-            .Sw => 0x02,
-            .Lui => 0x03,
-            .Addi => 0x04,
-            .Add => 0x05,
-            .Sub => 0x06,
-            .And => 0x07,
-            .Not => 0x08,
-            .Or => 0x09,
-            .Xor => 0x0a,
-            .Sll => 0x0b,
-            .Srl => 0x0c,
-            .Sra => 0x0d,
-            .Jr => 0x0e,
-            .Beq => 0x0f,
-            .Bne => 0x10,
-            .Halt => 0x1f,
+            .Lw => OpR2Imm5(instr, builder.lw),
+            .Sw => OpR2Imm5(instr, builder.sw),
+            .Lui => OpR1ImmU8(instr, builder.lui),
+            .Addi => OpR2Imm5(instr, builder.addi),
+            .Add => OpR3(instr, builder.add),
+            .Sub => OpR3(instr, builder.sub),
+            .And => OpR3(instr, builder.andInstr),
+            .Not => OpR2(instr, builder.notInstr),
+            .Or => OpR3(instr, builder.orInstr),
+            .Xor => OpR3(instr, builder.xorInstr),
+            .Sll => OpR3(instr, builder.sll),
+            .Srl => OpR3(instr, builder.srl),
+            .Sra => OpR3(instr, builder.sra),
+            .Jr => OpR1(instr, builder.jr),
+            .Beq => OpR3(instr, builder.beq),
+            .Bne => OpR3(instr, builder.bne),
+            .Halt => builder.halt,
         };
 
         return instructionBit;
     }
 
-    pub fn lw(instr: ast.Instruction) u16 {
+    pub fn OpNo(builderFn: fn () u16) u16 {
+        return builderFn();
+    }
+
+    pub fn OpR1(instr: ast.Instruction, builderFn: fn (u3) u16) u16 {
+        const operands = instr.operand.items;
+        const r1 = getReg(operands[0]);
+        const instrBit = builderFn(r1);
+        return instrBit;
+    }
+
+    pub fn OpR2(instr: ast.Instruction, builderFn: fn (u3, u3) u16) u16 {
+        const operands = instr.operand.items;
+        const r1 = getReg(operands[0]);
+        const r2 = getReg(operands[1]);
+        const instrBit = builderFn(r1, r2);
+        return instrBit;
+    }
+
+    pub fn OpR3(instr: ast.Instruction, builderFn: fn (u3, u3, u3) u16) u16 {
+        const operands = instr.operand.items;
+        const r1 = getReg(operands[0]);
+        const r2 = getReg(operands[1]);
+        const r3 = getReg(operands[2]);
+        const instrBit = builderFn(r1, r2, r3);
+        return instrBit;
+    }
+
+    pub fn OpR2Imm5(instr: ast.Instruction, builderFn: fn (u3, u3, u5) u16) u16 {
         const operands = instr.operand.items;
         const r1 = getReg(operands[0]);
         const r2 = getReg(operands[1]);
         const imm = try getImmU5(operands[2]);
-        const instrBit = builder.lw(r1, r2, imm);
+        const instrBit = builderFn(r1, r2, imm);
+        return instrBit;
+    }
+
+    pub fn OpR1ImmU8(instr: ast.Instruction, builderFn: fn (u3, u8) u16) u16 {
+        const operands = instr.operand.items;
+        const r1 = getReg(operands[0]);
+        const imm = getImmU8(operands[1]);
+        const instrBit = builderFn(r1, imm);
         return instrBit;
     }
 };
