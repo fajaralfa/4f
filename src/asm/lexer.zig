@@ -303,3 +303,14 @@ test "Scan newline" {
         try std.testing.expectEqualSlices(u8, exp.literal, act.literal);
     }
 }
+
+test "Scan immediate zero" {
+    const str = "#1";
+    const allocator = std.testing.allocator;
+    var reporter = reportermod.Reporter.init(allocator, true);
+    defer reporter.deinit();
+    var lex = Lexer.init(allocator, str, reporter);
+    const tokens = try lex.tokenize();
+    _ = tokens;
+    defer lex.deinit();
+}
