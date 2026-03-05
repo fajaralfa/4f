@@ -2,6 +2,7 @@ const std = @import("std");
 const parser = @import("parser.zig");
 const lexer = @import("lexer.zig");
 const asttype = @import("ast.zig");
+const reportermod = @import("reporter.zig");
 
 pub const SemanticError = error{
     WrongOperand,
@@ -16,8 +17,9 @@ pub const SemanticAnalyzer = struct {
     allocator: std.mem.Allocator,
     operand_specs: [INSTR_LEN]OperandSpec,
     program: asttype.Program,
+    reporter: reportermod.Reporter,
 
-    fn init(allocator: std.mem.Allocator, program: asttype.Program) SemanticAnalyzer {
+    pub fn init(allocator: std.mem.Allocator, program: asttype.Program, reporter: reportermod.Reporter) SemanticAnalyzer {
         const operand_specs: [INSTR_LEN]OperandSpec = getOpcodeSpec();
 
         return SemanticAnalyzer{
@@ -25,6 +27,7 @@ pub const SemanticAnalyzer = struct {
             .labels = std.StringHashMap(usize).init(allocator),
             .operand_specs = operand_specs,
             .program = program,
+            .reporter = reporter,
         };
     }
 
@@ -125,11 +128,11 @@ pub const SemanticAnalyzer = struct {
         return opcode_specs;
     }
 
-    fn deinit(self: *SemanticAnalyzer) void {
+    pub fn deinit(self: *SemanticAnalyzer) void {
         self.labels.deinit();
     }
 
-    fn analyze(self: *SemanticAnalyzer) !void {
+    pub fn analyze(self: *SemanticAnalyzer) !void {
         for (self.program.items, 0..) |*block, i| {
             try self.visitBlock(block, i);
         }
@@ -151,14 +154,17 @@ pub const SemanticAnalyzer = struct {
     }
 
     fn visitInstruction(self: *SemanticAnalyzer, instr: *asttype.Instruction) !void {
+        try self.reporter.add(.Info, "opcode: {} operand: {}\n", .{ instr.opcode, instr.operand });
         if (instr.opcode == .Invalid) {
             return SemanticError.InvalidInstruction;
         }
 
         const spec = self.operand_specs[getOpcodeIndex(instr.opcode)];
 
-        if (instr.operand.items.len != spec.kinds.len)
+        if (instr.operand.items.len != spec.kinds.len) {
+            try self.reporter.add(.Err, "instr len: {}, spec len: {}\n", .{ instr.operand.items.len, spec.kinds.len });
             return SemanticError.WrongOperand;
+        }
 
         for (spec.kinds, instr.operand.items) |expected, actual| {
             const actual_kind: asttype.OperandKind = actual;
