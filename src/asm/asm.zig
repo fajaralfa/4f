@@ -6,9 +6,9 @@ const parsermod = @import("parser.zig");
 const reportermod = @import("reporter.zig");
 const semantic = @import("semantic.zig");
 
-pub fn assemble(allocator: std.mem.Allocator, input: []const u8) !std.ArrayList(u8) {
+pub fn assemble(allocator: std.mem.Allocator, input: []const u8, debug: bool) !std.ArrayList(u8) {
     // error reporter
-    var reporter = reportermod.Reporter.init(std.heap.smp_allocator, true);
+    var reporter = reportermod.Reporter.init(std.heap.smp_allocator, debug);
     defer reporter.deinit();
 
     // lexing
@@ -17,7 +17,7 @@ pub fn assemble(allocator: std.mem.Allocator, input: []const u8) !std.ArrayList(
     const tokens = try lex.tokenize();
 
     // parsing
-    var parser = parsermod.Parser.init(allocator, tokens.items, false);
+    var parser = parsermod.Parser.init(allocator, tokens.items, debug);
     defer parser.deinit();
     const ast = try parser.parse();
 
