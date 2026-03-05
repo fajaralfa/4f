@@ -76,7 +76,7 @@ pub const SemanticAnalyzer = struct {
         };
 
         opcode_specs[8] = .{
-            .kinds = &.{ .register, .register, .register },
+            .kinds = &.{ .register, .register },
             .instr_fn = opNot,
         };
 
