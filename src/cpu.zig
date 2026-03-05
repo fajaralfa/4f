@@ -1,5 +1,5 @@
 const std = @import("std");
-const assembler = @import("assembler.zig");
+const assembler = @import("asm/builder.zig");
 const mmiomod = @import("mmio.zig");
 
 pub const CPUError = error{
