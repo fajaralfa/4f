@@ -155,7 +155,7 @@ pub const SemanticAnalyzer = struct {
             return SemanticError.InvalidInstruction;
         }
 
-        const spec = self.operand_specs[@intFromEnum(instr.opcode)];
+        const spec = self.operand_specs[getOpcodeIndex(instr.opcode)];
 
         if (instr.operand.items.len != spec.kinds.len)
             return SemanticError.WrongOperand;
@@ -243,6 +243,29 @@ fn getOperand(comptime kind: asttype.OperandKind, op: asttype.Operand) OperandTy
     return switch (op) {
         kind => |v| v,
         else => unreachable,
+    };
+}
+
+fn getOpcodeIndex(opcode: asttype.Opcode) usize {
+    return switch (opcode) {
+        .Invalid => 0x0,
+        .Lw => 0x1,
+        .Sw => 0x2,
+        .Lui => 0x3,
+        .Addi => 0x4,
+        .Add => 0x5,
+        .Sub => 0x6,
+        .And => 0x7,
+        .Not => 0x8,
+        .Or => 0x9,
+        .Xor => 0xa,
+        .Sll => 0xb,
+        .Srl => 0xc,
+        .Sra => 0xd,
+        .Jr => 0xe,
+        .Beq => 0xf,
+        .Bne => 0x10,
+        .Halt => 0x1f,
     };
 }
 
