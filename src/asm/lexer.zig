@@ -1,4 +1,5 @@
 const std = @import("std");
+const reportermod = @import("reporter.zig");
 
 pub const Token = struct {
     type: TokenType,
@@ -34,8 +35,9 @@ pub const Lexer = struct {
     allocator: std.mem.Allocator,
     input: []const u8,
     tokens: std.ArrayList(Token),
+    reporter: reportermod.Reporter,
 
-    pub fn init(allocator: std.mem.Allocator, input: []const u8) Lexer {
+    pub fn init(allocator: std.mem.Allocator, input: []const u8, reporter: reportermod.Reporter) Lexer {
         return Lexer{
             .allocator = allocator,
             .start = 0,
@@ -46,6 +48,7 @@ pub const Lexer = struct {
             },
             .input = input,
             .tokens = std.ArrayList(Token).empty,
+            .reporter = reporter,
         };
     }
 
@@ -59,7 +62,7 @@ pub const Lexer = struct {
     pub fn tokenize(self: *Lexer) !std.ArrayList(Token) {
         while (!self.isAtEnd()) {
             self.start = self.current;
-            try self.scanToken();
+            self.scanToken() catch {};
         }
         // set position at the end of input
         self.start = self.input.len - 1;
@@ -88,7 +91,10 @@ pub const Lexer = struct {
             '#' => try self.number(),
             ',' => try self.addToken(.Comma),
             ':' => try self.addToken(.Colon),
-            else => return LexerError.InvalidToken,
+            else => {
+                try self.reporter.add(.Err, "Error at {c} {}\n", .{ c, self.pos });
+                return LexerError.InvalidToken;
+            },
         }
     }
 
