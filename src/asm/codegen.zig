@@ -2,7 +2,7 @@ const std = @import("std");
 const ast = @import("ast.zig");
 const builder = @import("builder.zig");
 
-const Codegen = struct {
+pub const Codegen = struct {
     allocator: std.mem.Allocator,
     program: ast.Program,
 
@@ -17,10 +17,14 @@ const Codegen = struct {
         _ = self;
     }
 
-    pub fn gen(self: *Codegen) !std.ArrayList(u16) {
-        var result = std.ArrayList(u16).empty;
+    pub fn gen(self: *Codegen) !std.ArrayList(u8) {
+        var result = std.ArrayList(u8).empty;
         for (self.program.items) |p| {
-            try result.append(self.allocator, visitBlock(p));
+            const instructionBits = visitBlock(p);
+            const lo: u8 = @intCast(instructionBits & std.math.maxInt(u8));
+            const hi: u8 = @intCast((instructionBits >> 8) & std.math.maxInt(u8));
+            try result.append(self.allocator, lo);
+            try result.append(self.allocator, hi);
         }
         return result;
     }
@@ -55,7 +59,7 @@ const Codegen = struct {
             .Jr => OpR1(instr, builder.jr),
             .Beq => OpR3(instr, builder.beq),
             .Bne => OpR3(instr, builder.bne),
-            .Halt => builder.halt,
+            .Halt => builder.halt(),
         };
 
         return instructionBit;
