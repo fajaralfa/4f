@@ -20,7 +20,9 @@ pub fn main() !void {
         .write = mmio.uartWrite,
     };
 
-    const allocator = std.heap.smp_allocator;
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
 
     var machine = try cpu.CPU.init(mem[0..]);
     try machine.addMMIO(allocator, uart_mmio);
