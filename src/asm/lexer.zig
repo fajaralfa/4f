@@ -149,7 +149,7 @@ pub const Lexer = struct {
 
         // Handle optional leading 0 + base prefix
         if (self.peek() == '0') {
-            _ = self.next();
+            _ = self.next(); // consume '0'
 
             const c = self.peek();
             switch (c) {
@@ -166,24 +166,31 @@ pub const Lexer = struct {
                     base = 8;
                 },
                 else => {
-                    // leading 0 with no prefix is decimal 0
-                    base = 10;
+                    // '0' without suffix is valid as decimal zero
+                    // Check if it should stop here (e.g., #0 followed by space)
+                    if (!isDigitForBase(c, base)) {
+                        // add just '0'
+                        try self.addToken(.ImmVal);
+                        return;
+                    }
+                    // Otherwise, proceed to parse more digits in base 10
                 },
             }
         }
 
-        // At least one digit is required
+        // ensure at least one digit exists
         if (!isDigitForBase(self.peek(), base)) {
             return LexerError.InvalidToken;
         }
 
-        // Consume all digits valid for this base
+        // Consume all valid digits
         while (isDigitForBase(self.peek(), base)) {
             _ = self.next();
         }
 
-        // If any letters/underscores are left, it's invalid (e.g., #23someword)
-        if (std.ascii.isAlphabetic(self.peek()) or self.peek() == '_') {
+        // Disallow trailing alphabetic characters or underscores
+        const next_char = self.peek();
+        if (std.ascii.isAlphabetic(next_char) or next_char == '_') {
             return LexerError.InvalidToken;
         }
 
