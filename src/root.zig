@@ -1,4 +1,4 @@
-pub const assembler = @import("assembler.zig");
+pub const assembler = @import("asm/asm.zig");
 pub const cpu = @import("cpu.zig");
 pub const mmio = @import("mmio.zig");
 
