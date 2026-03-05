@@ -1,5 +1,5 @@
 const std = @import("std");
-const mod = @import("zig");
+const mod = @import("4f");
 const cpu = mod.cpu;
 const assembler = mod.assembler;
 const mmio = mod.mmio;
