@@ -1,3 +1,17 @@
+# 4F
+
+An imaginary 16 bit CPU environment
+
+## Notes
+
+It's a project intended for me learn how computer works at the lowest level, potentially educational for others.
+
+## Project Content
+
+- [ISA Spec](#isa-spec)
+- Emulator
+- Assembler
+
 ## ISA Spec
 
 ### Register
@@ -49,3 +63,14 @@
 | beq | 0x0f |beq x1, x2, x3 | 5, 3, 3, 3, 2 (op, dest, src1, src2) | if (x2 == x3) PC += x1 * 2 |
 | bne | 0x10 |bne x1, x2, x3 | 5, 3, 3, 3, 2 (op, dest, src1, src2) | if (x2 != x3) PC += x1 * 2 |
 | halt | 0x1F | halt | 5, 11 (op, pad) | stop cpu |
+
+## Footnote
+
+Missing features:
+- ISA Spec:
+    - Memory layout
+- Assembler:
+    - Label resolver
+    - Expression
+- Emulator:
+    - Exception handler
