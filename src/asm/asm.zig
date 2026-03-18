@@ -32,3 +32,12 @@ pub fn assemble(allocator: std.mem.Allocator, input: []const u8, debug: bool) !s
     const binary = try codegen.gen();
     return binary;
 }
+
+pub fn print(binary: []u8) void {
+    var i: usize = 0;
+    while (i < binary.len) {
+        const instr = binary[i] | (@as(u16, binary[i + 1]) << 8);
+        std.debug.print("{b:0>16}\n", .{instr});
+        i += 2;
+    }
+}

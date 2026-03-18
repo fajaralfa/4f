@@ -64,6 +64,7 @@ pub fn main() !void {
         \\halt
     ;
     var binary = try mod.assembler.assemble(allocator, program, false);
+    mod.assembler.print(binary.items);
     defer binary.deinit(allocator);
     try machine.loadProgram(binary.items);
     try machine.runProgram();
