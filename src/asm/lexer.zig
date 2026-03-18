@@ -173,6 +173,10 @@ pub const Lexer = struct {
                         try self.addToken(.ImmVal);
                         return;
                     }
+
+                    if (std.ascii.isAlphabetic(c) or c == '_') {
+                        return LexerError.InvalidToken;
+                    }
                     // Otherwise, proceed to parse more digits in base 10
                 },
             }
@@ -211,7 +215,9 @@ pub const Lexer = struct {
 test "Scan ignore position" {
     const str: []const u8 = ", x1 _start:";
     const allocator = std.testing.allocator;
-    var lex = Lexer.init(allocator, str);
+    var reporter = reportermod.Reporter.init(allocator, false);
+    defer reporter.deinit();
+    var lex = Lexer.init(allocator, str, reporter);
     const tokens = try lex.tokenize();
     defer lex.deinit();
 
@@ -231,7 +237,9 @@ test "Scan ignore position" {
 test "Scan immediate ignore position" {
     const str: []const u8 = "#123 #0xFA #0o12 #0b101";
     const allocator = std.testing.allocator;
-    var lex = Lexer.init(allocator, str);
+    var reporter = reportermod.Reporter.init(allocator, false);
+    defer reporter.deinit();
+    var lex = Lexer.init(allocator, str, reporter);
     const tokens = try lex.tokenize();
     defer lex.deinit();
 
@@ -250,11 +258,20 @@ test "Scan immediate ignore position" {
 
 fn expectInvalidToken(str: []const u8) !void {
     const allocator = std.testing.allocator;
-    var lex = Lexer.init(allocator, str);
-    const tokens = lex.tokenize();
+    var reporter = reportermod.Reporter.init(allocator, false);
+    defer reporter.deinit();
+    var lex = Lexer.init(allocator, str, reporter);
+    _ = try lex.tokenize();
     defer lex.deinit();
 
-    try std.testing.expectError(LexerError.InvalidToken, tokens);
+    var err: LexerError!u8 = undefined;
+    if (lex.reporter.errors.items.len > 0) {
+        err = LexerError.InvalidToken;
+    } else {
+        err = 0;
+    }
+
+    try std.testing.expectError(LexerError.InvalidToken, err);
 }
 
 test "Scan invalid immediates" {
@@ -272,7 +289,9 @@ test "Scan invalid tokens" {
 test "Scan identifier ignore position" {
     const str = "lw sw halt";
     const allocator = std.testing.allocator;
-    var lex = Lexer.init(allocator, str);
+    var reporter = reportermod.Reporter.init(allocator, false);
+    defer reporter.deinit();
+    var lex = Lexer.init(allocator, str, reporter);
     const tokens = try lex.tokenize();
     defer lex.deinit();
 
@@ -291,7 +310,9 @@ test "Scan identifier ignore position" {
 test "Scan newline" {
     const str = "lw sw\nlw\n";
     const allocator = std.testing.allocator;
-    var lex = Lexer.init(allocator, str);
+    var reporter = reportermod.Reporter.init(allocator, false);
+    defer reporter.deinit();
+    var lex = Lexer.init(allocator, str, reporter);
     const tokens = try lex.tokenize();
     defer lex.deinit();
 
@@ -312,9 +333,9 @@ test "Scan newline" {
 }
 
 test "Scan immediate zero" {
-    const str = "#1";
+    const str = "#0";
     const allocator = std.testing.allocator;
-    var reporter = reportermod.Reporter.init(allocator, true);
+    var reporter = reportermod.Reporter.init(allocator, false);
     defer reporter.deinit();
     var lex = Lexer.init(allocator, str, reporter);
     const tokens = try lex.tokenize();
