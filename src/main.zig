@@ -28,22 +28,22 @@ pub fn main() !void {
     try machine.addMMIO(allocator, uart_mmio);
     defer machine.deinitMMIO(allocator);
 
-    // program to print ABCDEF. No cheating, only use general purpose register (2,3,4).
+    // program to print ABCDEF using only general purpose register (2,3,4).
     // I want to use stack, but this is already make my head twisting.
     const program =
-        // r2 = 1
+        // x1 = 1
         \\lui x1, #0
         \\addi x1, x1, #1
-        // r3 = 6
+        // x2 = 6
         \\lui x2, #0
         \\addi x2, x2, #6
         // loop:
-        // r2 = r2 << r3 (0x40)
+        // x1 = x1 << x2 (0x40)
         \\sll x1, x1, x2
 
-        // r2 = r2 + 1 (0x41 / 'A')
+        // x1 = x1 + 1 (0x41 / 'A')
         \\addi x1, x1, #0x01
-        // mmio mem[0xFF00] = r2
+        // mmio mem[0xFF00] = x1
         \\lui x2, #0xff
         \\sw x1, x2, #0
         // loop back to -13
@@ -52,12 +52,12 @@ pub fn main() !void {
         \\lui x2, #0
         \\addi x2, x2, #0xc
         \\sub x3, x3, x2
-        // store target value in r3 (0x46 for 'F')
+        // store target value in x2 (0x46 for 'F')
         \\lui x2, #0
         \\addi x2, x2, #0x1f
         \\addi x2, x2, #0x1f
         \\addi x2, x2, #0x8
-        // jump if r2 != r3
+        // jump if x1 != r2
         \\bne x3, x1, x2
 
         // halt
